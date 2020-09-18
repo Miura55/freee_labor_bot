@@ -1,0 +1,2 @@
+# freee_labor_bot
+freeeとLINEのAPIを使った労務botのサンプル
