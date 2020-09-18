@@ -2,7 +2,7 @@
 from flask import Flask, request, abort, jsonify, render_template
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+import datetime
 import os
 import json
 import requests
@@ -38,6 +38,10 @@ handler = WebhookHandler(CHANNEL_SECRET)
 # RECIPT OCRの設定
 OCR_API_URL = os.environ.get('OCR_API_URL')
 OCR_API_KEY = os.environ.get('OCR_API_KEY')
+
+# freee APIの設定
+freee_token = os.environ.get('FREEE_TOKEN')
+company_id = int(os.environ.get('COMPANY_ID'))
 
 # アプリケーションの設定
 app = Flask(__name__, static_folder='static')
@@ -120,7 +124,11 @@ def call_recipt(image):
         }
     )
     response_json = response.json()
-    logger.info('Request Body: {}'.format(response_json))
+    logger.info('Recipt Data: {}'.format(response_json))
+
+    # freeeへ申請
+    expense_result = insert_expence(response_json)
+    logger.info('Expensed Data: {}'.format(expense_result))
 
     with open('sample_recipt.json', 'r', encoding='utf-8') as f:
         recipt_form = json.load(f)
@@ -185,6 +193,34 @@ def call_recipt(image):
         "contents": recipt_form
     })
     return recipt_message
+
+
+def insert_expence(recipt_data):
+    transaction_date = recipt_data['result']['paymentInfo']['date']
+    # 明細の記入
+    items = []
+    for item in recipt_data['result']['items']:
+        items.append({
+            "transaction_date": transaction_date,
+            "description": item['name'],
+            "amount": item['priceInfo']['price']
+        })
+
+    response = requests.post(
+        'https://api.freee.co.jp/api/1/expense_applications',
+        headers={
+            'Authorization': 'Bearer {}'.format(freee_token)
+        },
+        json={
+            "company_id": company_id,
+            "title": "雑費",
+            "issue_date": datetime.date.today().strftime('%Y-%m-%d'),
+            "description": recipt_data['result']['storeInfo']['name'],
+            "editable_on_web": False,
+            "expense_application_lines": items
+        }
+    )
+    return response.json()
 
 
 if __name__ == "__main__":
