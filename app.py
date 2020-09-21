@@ -29,7 +29,7 @@ from linebot.models import (
 
 # Cloudant
 from cloudant.client import Cloudant
-from cloudant.query import Query
+from cloudant.document import Document
 from cloudant.adapters import Replay429Adapter
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -51,7 +51,7 @@ cloudant_password = os.environ.get('CLOUDANT_PASSWORD')
 
 db_client = Cloudant(
     cloudant_username,
-    cloudant_password, 
+    cloudant_password,
     url=cloudant_url,
     adapter=Replay429Adapter(retries=10, initialBackoff=0.01)
 )
@@ -59,12 +59,8 @@ db_client = Cloudant(
 # freee APIの設定
 db_client.connect()
 freee_tokens = db_client['freee_tokens']
-token_doc = freee_tokens.get_query_result({
-    "_id": {
-        "$eq": os.environ.get('TOKEN_DOC_ID')
-    }
-})
-freee_access_token = list(token_doc)[0]['access_token']
+with Document(freee_tokens, os.environ.get('TOKEN_DOC_ID')) as document:
+    freee_access_token = document['access_token']
 db_client.disconnect()
 company_id = int(os.environ.get('COMPANY_ID'))
 
@@ -77,6 +73,7 @@ logger = getLogger("werkzeug")
 @app.route('/')
 def connect():
     return "Hello from Flask"
+
 
 @app.route("/callback", methods=['POST'])
 def callback():
