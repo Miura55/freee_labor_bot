@@ -8,8 +8,9 @@ import json
 import requests
 import base64
 from logging import getLogger
-from linepay import LinePayApi
+from dotenv import load_dotenv
 
+# LINE bot SDK
 from linebot import (
     LineBotApi, WebhookHandler
 )
@@ -26,7 +27,11 @@ from linebot.models import (
     ImageMessage,
 )
 
-from dotenv import load_dotenv
+# Cloudant
+from cloudant.client import Cloudant
+from cloudant.query import Query
+from cloudant.adapters import Replay429Adapter
+
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # LINE BOTの設定
@@ -39,8 +44,28 @@ handler = WebhookHandler(CHANNEL_SECRET)
 OCR_API_URL = os.environ.get('OCR_API_URL')
 OCR_API_KEY = os.environ.get('OCR_API_KEY')
 
+# Cloudantの接続
+cloudant_url = os.environ.get('CLOUDANT_URL')
+cloudant_username = os.environ.get('CLOUDANT_USERNAME')
+cloudant_password = os.environ.get('CLOUDANT_PASSWORD')
+
+db_client = Cloudant(
+    cloudant_username,
+    cloudant_password, 
+    url=cloudant_url,
+    adapter=Replay429Adapter(retries=10, initialBackoff=0.01)
+)
+
 # freee APIの設定
-freee_token = os.environ.get('FREEE_TOKEN')
+db_client.connect()
+freee_tokens = db_client['freee_tokens']
+token_doc = freee_tokens.get_query_result({
+    "_id": {
+        "$eq": os.environ.get('TOKEN_DOC_ID')
+    }
+})
+freee_access_token = list(token_doc)[0]['access_token']
+db_client.disconnect()
 company_id = int(os.environ.get('COMPANY_ID'))
 
 # アプリケーションの設定
@@ -52,7 +77,6 @@ logger = getLogger("werkzeug")
 @app.route('/')
 def connect():
     return "Hello from Flask"
-
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -88,17 +112,17 @@ def handle_image(event):
     message_content = line_bot_api.get_message_content(message_id)
 
     image = base64.b64encode(message_content.content)
-    recipt_message = call_recipt(image)
+    response_message = call_recipt(image)
     line_bot_api.reply_message(
         event.reply_token,
-        messages=recipt_message
+        messages=response_message
     )
 
 
 @handler.add(FollowEvent)
 def handle_follow(event):
     message = "{}{}".format(
-        '友だち追加ありがとうございます！オフィスの作業を効率化しよう！',
+        '友だち追加ありがとうございます。オフィスの作業を効率化しよう！',
         '\n※このアカウントは空想上のプロトタイプなので、実際の挙動とは異なります')
     line_bot_api.reply_message(
         event.reply_token,
@@ -126,73 +150,76 @@ def call_recipt(image):
     response_json = response.json()
     logger.info('Recipt Data: {}'.format(response_json))
 
-    # freeeへ申請
-    expense_result = insert_expence(response_json)
-    logger.info('Expensed Data: {}'.format(expense_result))
+    if response.status_code == 200:
+        # freeeへ申請
+        expense_result = insert_expence(response_json)
+        logger.info('Expensed Data: {}'.format(expense_result))
 
-    with open('sample_recipt.json', 'r', encoding='utf-8') as f:
-        recipt_form = json.load(f)
+        with open('sample_recipt.json', 'r', encoding='utf-8') as f:
+            recipt_form = json.load(f)
 
-    # 読み込み結果を出力するメッセージを作成
-    recipt_form['header']['contents'][2]['text'] = response_json['result']['storeInfo']['name']
+        # 読み込み結果を出力するメッセージを作成
+        recipt_form['header']['contents'][2]['text'] = response_json['result']['storeInfo']['name']
 
-    contents = [{
-        "type": "separator",
-        "color": "#000000"
-    }]
-    for item in response_json['result']['items']:
-        box = {
+        contents = [{
+            "type": "separator",
+            "color": "#000000"
+        }]
+        for item in response_json['result']['items']:
+            box = {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": item['name'],
+                        "size": "lg",
+                        "align": "start",
+                        "contents": []
+                    },
+                    {
+                        "type": "text",
+                        "text": "¥{}".format(item['priceInfo']['price']),
+                        "color": "#000000",
+                        "align": "end",
+                        "gravity": "bottom",
+                        "contents": []
+                    }
+                ]
+            }
+            contents.append(box)
+
+        # 合計金額を挿入
+        contents += [{
+            "type": "separator",
+            "color": "#000000"
+        },
+            {
             "type": "box",
             "layout": "horizontal",
             "contents": [
                 {
                     "type": "text",
-                    "text": item['name'],
-                    "size": "lg",
-                    "align": "start",
+                    "text": "合計",
                     "contents": []
                 },
                 {
                     "type": "text",
-                    "text": "¥{}".format(item['priceInfo']['price']),
-                    "color": "#000000",
+                    "text": "¥{}".format(response_json['result']['totalPrice']['price']),
                     "align": "end",
-                    "gravity": "bottom",
                     "contents": []
                 }
             ]
-        }
-        contents.append(box)
-
-    # 合計金額を挿入
-    contents += [{
-        "type": "separator",
-        "color": "#000000"
-    },
-        {
-        "type": "box",
-        "layout": "horizontal",
-        "contents": [
-            {
-                "type": "text",
-                "text": "合計",
-                "contents": []
-            },
-            {
-                "type": "text",
-                "text": "¥{}".format(response_json['result']['totalPrice']['price']),
-                "align": "end",
-                "contents": []
-            }
-        ]
-    }]
-    recipt_form['body']['contents'] = contents
-    recipt_message = FlexSendMessage.new_from_json_dict({
-        "type": "flex",
-        "altText": "レシート",
-        "contents": recipt_form
-    })
-    return recipt_message
+        }]
+        recipt_form['body']['contents'] = contents
+        response_message = FlexSendMessage.new_from_json_dict({
+            "type": "flex",
+            "altText": "レシート",
+            "contents": recipt_form
+        })
+    else:
+        response_message = TextSendMessage(text="レシートが読み取れませんでした。")
+    return response_message
 
 
 def insert_expence(recipt_data):
@@ -209,11 +236,11 @@ def insert_expence(recipt_data):
     response = requests.post(
         'https://api.freee.co.jp/api/1/expense_applications',
         headers={
-            'Authorization': 'Bearer {}'.format(freee_token)
+            'Authorization': 'Bearer {}'.format(freee_access_token)
         },
         json={
             "company_id": company_id,
-            "title": "雑費",
+            "title": "立替申請",
             "issue_date": datetime.date.today().strftime('%Y-%m-%d'),
             "description": recipt_data['result']['storeInfo']['name'],
             "editable_on_web": False,
