@@ -43,6 +43,9 @@ handler = WebhookHandler(CHANNEL_SECRET)
 OCR_API_URL = os.environ.get('OCR_API_URL')
 OCR_API_KEY = os.environ.get('OCR_API_KEY')
 
+# LIFFの用意
+LIFF_ID = os.environ.get('LIFF_ID')
+
 # Cloudantの接続
 cloudant_url = os.environ.get('CLOUDANT_URL')
 cloudant_username = os.environ.get('CLOUDANT_USERNAME')
@@ -72,6 +75,39 @@ logger = getLogger("werkzeug")
 @app.route('/')
 def connect():
     return "Hello from Flask"
+
+
+@app.route('/regist')
+def regist():
+    response = requests.get(
+        'https://api.freee.co.jp/hr/api/v1/companies/{}/employees'.format(
+            company_id),
+        headers={
+            'Authorization': 'Bearer {}'.format(freee_access_token)
+        }
+    )
+    logger.info(response.json())
+    return render_template('regist.html', liffId=LIFF_ID, employees=response.json())
+
+
+@app.route('/reqlogin')
+def reqlogin():
+    return render_template('reqlogin.html')
+
+
+@app.route('/submit', methods=['POST'])
+def submit():
+    body = request.get_json()
+    logger.info('Request body: {}'.format(json.dumps(body, indent=4)))
+    data = {
+        '_id': body['user_id'],
+        'employee_id': body['employee_id']
+    }
+    db_client.connect()
+    labor_bot_db = db_client['labor_bot']
+    labor_bot_db.create_document(data)
+    db_client.disconnect()
+    return "OK!"
 
 
 @app.route("/callback", methods=['POST'])
@@ -149,7 +185,8 @@ def call_recipt(image):
     if response.status_code == 200:
         # freeeへ申請
         expense_result = insert_expence(response_json)
-        logger.info('Expensed Data: {}'.format(expense_result))
+        logger.info('Expensed Data: {}'.format(
+            json.dumps(expense_result, indent=4)))
 
         with open('sample_recipt.json', 'r', encoding='utf-8') as f:
             recipt_form = json.load(f)

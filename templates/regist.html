@@ -1,0 +1,89 @@
+{% extends "base.html" %} {% block body %}
+<div class="row">
+  <h1 id="displaynamefield"></h1>
+  <div class="form-group">
+    <label class="control-label"> 該当するFreeeのユーザ名を選択下さい</label>
+
+    {% for employee in employees %}
+    <div class="form-check">
+      <input
+        class="form-check-input"
+        type="radio"
+        name="employee"
+        value="{{ employee['id'] }}"
+      />
+      <label class="form-check-label" for="{{ employee['id'] }}"
+        >{{ employee['display_name'] }}</label
+      >
+    </div>
+    {% endfor %}
+  </div>
+  <button
+    type="button"
+    id="submit"
+    class="btn btn-primary w-100 mt-2"
+    data-toggle="modal"
+  >
+    登録
+  </button>
+</div>
+
+<script>
+  var userId = "";
+
+  window.onload = function (e) {
+    initLiff("{{ liffId }}");
+  };
+
+  function initLiff(myLiffId) {
+    liff
+      .init({
+        liffId: myLiffId,
+      })
+      .then(() => {
+        if (!liff.isInClient()) {
+          window.location.href = "/reqlogin";
+        } else {
+          // start to use LIFF's api
+          liff
+            .getProfile()
+            .then(function (profile) {
+              userId = profile.userId;
+              userName = profile.displayName;
+              document.getElementById("displaynamefield").textContent =
+                "ようこそ" + userName + "さん";
+            })
+            .catch(function (error) {
+              window.alert("Error getting profile: " + error);
+            });
+        }
+      });
+  }
+
+  $("#submit").on("click", function () {
+    var employeeId = $("input[name=employee]:checked").val();
+    var params = {
+      user_id: userId,
+      employee_id: employeeId,
+    };
+
+    axios
+      .post("/submit", params)
+      .then(function (response) {
+        boot4.alert(
+          {
+            msg: "画面を閉じます",
+            title: "登録完了",
+            callback: function () {
+              liff.closeWindow();
+            },
+          },
+          "OK"
+        );
+      })
+      .catch(function (error) {
+        alert("Debug: " + error);
+      });
+  });
+</script>
+{% endblock %}
