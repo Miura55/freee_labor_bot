@@ -38,6 +38,8 @@ CHANNEL_ACCESS_TOKEN = os.environ.get('CHANNEL_ACCESS_TOKEN')
 CHANNEL_SECRET = os.environ.get('CHANNEL_SECRET')
 line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
+attend_menu_id = os.environ.get('ATTEND_MENU_ID')
+on_work_menu_id = os.environ.get('ON_WORK_MENU_ID')
 
 # RECIPT OCRの設定
 OCR_API_URL = os.environ.get('OCR_API_URL')
@@ -99,6 +101,7 @@ def reqlogin():
 def submit():
     body = request.get_json()
     logger.info('Request body: {}'.format(json.dumps(body, indent=4)))
+    # トランザクションデータを作成
     data = {
         '_id': body['user_id'],
         'employee_id': body['employee_id']
@@ -107,6 +110,8 @@ def submit():
     labor_bot_db = db_client['labor_bot']
     labor_bot_db.create_document(data)
     db_client.disconnect()
+    # リッチメニューを設定
+    line_bot_api.link_rich_menu_to_user(body['user_id'], attend_menu_id)
     return "OK!"
 
 
@@ -133,9 +138,19 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    if event.message.text == '出勤':
+        message = '出勤しました'
+        line_bot_api.link_rich_menu_to_user(
+            event.source.user_id, on_work_menu_id)
+    elif event.message.text == '退勤':
+        message = '退勤しました'
+        line_bot_api.link_rich_menu_to_user(
+            event.source.user_id, attend_menu_id)
+    else:
+        message = event.message.text
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=event.message.text))
+        TextSendMessage(text=message))
 
 
 @handler.add(MessageEvent, message=ImageMessage)
