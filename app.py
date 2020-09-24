@@ -171,10 +171,20 @@ def handle_follow(event):
     message = "{}{}".format(
         '友だち追加ありがとうございます。オフィスの作業を効率化しよう！',
         '\n※このアカウントは空想上のプロトタイプなので、実際の挙動とは異なります')
+    with open('regist_message.json', 'r', encoding='utf-8') as f:
+        regist_form_content = json.load(f)
+    regist_form_content['footer']['contents'][0]['action']['uri'] \
+        = 'https://liff.line.me/{}'.format(LIFF_ID)
+    regist_form_message = FlexSendMessage.new_from_json_dict({
+        "type": "flex",
+        "altText": "アカウントの連携",
+        "contents": regist_form_content
+    })
     line_bot_api.reply_message(
         event.reply_token,
         [
             TextSendMessage(text=message),
+            regist_form_message,
             StickerSendMessage(
                 package_id=11537,
                 sticker_id=52002739
@@ -195,7 +205,7 @@ def call_recipt(image):
         }
     )
     response_json = response.json()
-    logger.info('Recipt Data: {}'.format(response_json))
+    logger.info('Recipt Data: {}'.format(json.dumps(response_json, indent=4)))
 
     if response.status_code == 200:
         # freeeへ申請

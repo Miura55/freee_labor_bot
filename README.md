@@ -4,7 +4,22 @@ freee と LINE の API を使った労務 bot のサンプル
 
 ## セットアップ方法
 
-`.env_sample`をコピーし、ファイル名を`.env`にして必要な環境変数をセットする
+1. `.env_sample`をコピーし、ファイル名を`.env`にして必要な環境変数をセットする(`LIFF_ID`については 4．の設定を行う際に出力される LIFF ID をセットする)
+2. 以下のコマンドで必要なライブラリをインストール
+
+```
+pip install -r requirements.txt
+```
+
+3. ngrok を起動し、Messaging API 及び LINE ログイン(LIFF を管理するチャネル)のエンドポイント URL に設定する
+
+```
+ngrok http 5000
+```
+
+4. LIFF ID を`.env`の`LIFF_ID`にセットする
+
+5. `app.py`でアプリを実行する。
 
 ## リッチメニューの登録
 
