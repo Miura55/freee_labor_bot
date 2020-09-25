@@ -248,27 +248,29 @@ def call_recipt(image):
             contents.append(box)
 
         # 合計金額を挿入
-        contents += [{
-            "type": "separator",
-            "color": "#000000"
-        },
+        contents += [
             {
-            "type": "box",
-            "layout": "horizontal",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": "合計",
-                    "contents": []
-                },
-                {
-                    "type": "text",
-                    "text": "¥{}".format(response_json['result']['totalPrice']['price']),
-                    "align": "end",
-                    "contents": []
-                }
-            ]
-        }]
+                "type": "separator",
+                "color": "#000000"
+            },
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "合計",
+                        "contents": []
+                    },
+                    {
+                        "type": "text",
+                        "text": "¥{}".format(response_json['result']['totalPrice']['price']),
+                        "align": "end",
+                        "contents": []
+                    }
+                ]
+            }
+        ]
         recipt_form['body']['contents'] = contents
         response_message = FlexSendMessage.new_from_json_dict({
             "type": "flex",
