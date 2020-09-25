@@ -4,7 +4,7 @@ freee と LINE の API を使った労務 bot のサンプル
 
 ## システム構成
 
-[システム構成](https://github.com/Miura55/freee_labor_bot/blob/master/system_arch.svg)
+![system_architect](https://user-images.githubusercontent.com/24681988/94308799-087ea300-ffb2-11ea-93c6-381e8b8f29c3.png)
 
 ## セットアップ方法
 
@@ -15,15 +15,20 @@ freee と LINE の API を使った労務 bot のサンプル
 pip install -r requirements.txt
 ```
 
-3. ngrok を起動し、Messaging API 及び LINE ログイン(LIFF を管理するチャネル)のエンドポイント URL に設定する
+3. ngrok を起動し、生成した URL を コピーする
 
 ```
 ngrok http 5000
 ```
 
-4. LIFF ID を`.env`の`LIFF_ID`にセットする
+4. Messaging API 及び LINE ログイン(LIFF を管理するチャネル)のエンドポイント URL に設定する
 
-5. `app.py`でアプリを実行する。
+- Messaging API：`【ngrokのURL】/callback`
+- LINE ログイン：`【ngrokのURL】/regist`
+
+5. LIFF ID を`.env`の`LIFF_ID`にセットする
+
+6. `app.py`でアプリを実行する。
 
 ## リッチメニューの登録
 
