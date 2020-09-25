@@ -4,7 +4,7 @@ freee と LINE の API を使った労務 bot のサンプル
 
 ## システム構成
 
-[システム構成]()
+[システム構成](https://github.com/Miura55/freee_labor_bot/blob/master/system_arch.svg)
 
 ## セットアップ方法
 
