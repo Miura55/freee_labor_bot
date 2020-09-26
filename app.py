@@ -138,16 +138,35 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    user_id = event.source.user_id
+    employee_id = select_user_data(user_id, 'employee_id')
+    flag = ''
     if event.message.text == '出勤':
         message = '出勤しました'
+        flag = 'clock_in'
         line_bot_api.link_rich_menu_to_user(
-            event.source.user_id, on_work_menu_id)
+            user_id, on_work_menu_id)
     elif event.message.text == '退勤':
         message = '退勤しました'
+        flag = 'clock_out'
         line_bot_api.link_rich_menu_to_user(
-            event.source.user_id, attend_menu_id)
+            user_id, attend_menu_id)
     else:
         message = event.message.text
+
+    if flag:
+        response = requests.post(
+            'https://api.freee.co.jp/hr/api/v1/employees/{}/time_clocks'.format(
+                employee_id),
+            headers={
+                'Authorization': 'Bearer {}'.format(freee_access_token)
+            },
+            json={
+                "company_id": company_id,
+                "type": flag
+            }
+        )
+        logger.info('Result: {}'.format(json.dumps(response.json(), indent=4)))
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=message))
@@ -191,6 +210,15 @@ def handle_follow(event):
             )
         ]
     )
+
+
+def select_user_data(user_id, column):
+    db_client.connect()
+    labor_bot_db = db_client['labor_bot']
+    with Document(labor_bot_db, user_id) as document:
+        user_doc = document[column]
+    db_client.disconnect()
+    return user_doc
 
 
 def call_recipt(image):
