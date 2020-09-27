@@ -60,12 +60,7 @@ db_client = Cloudant(
     adapter=Replay429Adapter(retries=10, initialBackoff=0.01)
 )
 
-# freee APIの設定
-db_client.connect()
-freee_tokens = db_client['freee_tokens']
-with Document(freee_tokens, os.environ.get('TOKEN_DOC_ID')) as document:
-    freee_access_token = document['access_token']
-db_client.disconnect()
+
 company_id = int(os.environ.get('COMPANY_ID'))
 
 # アプリケーションの設定
@@ -85,7 +80,7 @@ def regist():
         'https://api.freee.co.jp/hr/api/v1/companies/{}/employees'.format(
             company_id),
         headers={
-            'Authorization': 'Bearer {}'.format(freee_access_token)
+            'Authorization': 'Bearer {}'.format(select_freee_token())
         }
     )
     logger.info(response.json())
@@ -159,14 +154,15 @@ def handle_message(event):
             'https://api.freee.co.jp/hr/api/v1/employees/{}/time_clocks'.format(
                 employee_id),
             headers={
-                'Authorization': 'Bearer {}'.format(freee_access_token)
+                'Authorization': 'Bearer {}'.format(select_freee_token())
             },
             json={
                 "company_id": company_id,
                 "type": flag
             }
         )
-        logger.info('Result: {}'.format(json.dumps(response.json(), indent=4)))
+        logger.info('Result: {}'.format(json.dumps(
+            response.json(), indent=4, ensure_ascii=False)))
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=message))
@@ -310,6 +306,16 @@ def call_recipt(image):
     return response_message
 
 
+def select_freee_token():
+    # freee APIの設定
+    db_client.connect()
+    freee_tokens = db_client['freee_tokens']
+    with Document(freee_tokens, os.environ.get('TOKEN_DOC_ID')) as document:
+        freee_access_token = document['access_token']
+    db_client.disconnect()
+    return freee_access_token
+
+
 def insert_expence(recipt_data):
     transaction_date = recipt_data['result']['paymentInfo']['date']
     # 明細の記入
@@ -324,7 +330,7 @@ def insert_expence(recipt_data):
     response = requests.post(
         'https://api.freee.co.jp/api/1/expense_applications',
         headers={
-            'Authorization': 'Bearer {}'.format(freee_access_token)
+            'Authorization': 'Bearer {}'.format(select_freee_token())
         },
         json={
             "company_id": company_id,
