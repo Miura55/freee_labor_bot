@@ -99,7 +99,8 @@ def submit():
     # トランザクションデータを作成
     data = {
         '_id': body['user_id'],
-        'employee_id': body['employee_id']
+        'employee_id': body['employee_id'],
+        'fix_time': False
     }
     db_client.connect()
     labor_bot_db = db_client['labor_bot']
@@ -135,6 +136,7 @@ def callback():
 def handle_message(event):
     user_id = event.source.user_id
     employee_id = select_user_data(user_id, 'employee_id')
+    is_fixing_time = select_user_data(user_id, 'fix_time')
     flag = ''
     if event.message.text == '出勤':
         message = '出勤しました'
@@ -146,6 +148,13 @@ def handle_message(event):
         flag = 'clock_out'
         line_bot_api.link_rich_menu_to_user(
             user_id, attend_menu_id)
+    elif event.message.text == '打刻修正':
+        message = '本日の出勤打刻修正をします。以下の例にしたがって打刻修正をしてください。\n'\
+                  '例) 09:00'
+        insert_bot_status(user_id, 'fix_time', True)
+    elif is_fixing_time:
+        message = '修正しました'
+        insert_bot_status(user_id, 'fix_time', False)
     else:
         message = event.message.text
 
@@ -215,6 +224,13 @@ def select_user_data(user_id, column):
         user_doc = document[column]
     db_client.disconnect()
     return user_doc
+
+def insert_bot_status(user_id, column, status):
+    db_client.connect()
+    labor_bot_db = db_client['labor_bot']
+    with Document(labor_bot_db, user_id) as document:
+        document[column] = status
+    db_client.disconnect()
 
 
 def call_recipt(image):
