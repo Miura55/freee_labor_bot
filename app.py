@@ -270,7 +270,7 @@ def call_recipt(image):
             'x-linebrain-apigw-api-key': OCR_API_KEY
         },
         json={
-            'imageContent': image
+            'imageContent': image.decode('utf-8')
         }
     )
     response_json = response.json()
