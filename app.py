@@ -1,6 +1,7 @@
 # coding: utf-8
 from flask import Flask, request, abort, jsonify, render_template
 from flask_cors import CORS
+from pytz import timezone
 import datetime
 import os
 import json
@@ -153,8 +154,35 @@ def handle_message(event):
                   '例) 09:00'
         insert_bot_status(user_id, 'fix_time', True)
     elif is_fixing_time:
-        message = '修正しました'
+        # 打刻修正をする
+        today = datetime.date.today().strftime('%Y-%m-%d')
+        fixed_strtime = today + event.message.text
+        fixed_datetime = datetime.datetime.strptime(
+            fixed_strtime, "%Y-%m-%d%H:%M")
+        fixed_end_datetime = fixed_datetime+datetime.timedelta(hours=9)
+        clock_in_time = fixed_datetime.astimezone(
+            timezone('Asia/Tokyo')).isoformat()
+        clock_out_time = fixed_end_datetime.astimezone(
+            timezone('Asia/Tokyo')).isoformat()
+        response = requests.put(
+            'https://api.freee.co.jp/hr/api/v1/employees/{}/work_records/{}'.format(
+                employee_id, today),
+            headers={
+                'Authorization': 'Bearer {}'.format(select_freee_token())
+            },
+            json={
+                "work_record": {
+                    "company_id": company_id,
+                    "clock_in_at": clock_in_time,
+                    "clock_out_at": clock_out_time
+                }
+            }
+        )
+        logger.info('Result: {}'.format(json.dumps(
+            response.json(), indent=4, ensure_ascii=False)))
+
         insert_bot_status(user_id, 'fix_time', False)
+        message = '修正しました'
     else:
         message = event.message.text
 
@@ -224,6 +252,7 @@ def select_user_data(user_id, column):
         user_doc = document[column]
     db_client.disconnect()
     return user_doc
+
 
 def insert_bot_status(user_id, column, status):
     db_client.connect()
