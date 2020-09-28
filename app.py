@@ -19,6 +19,7 @@ from linebot.exceptions import (
 )
 from linebot.models import (
     FollowEvent,
+    UnfollowEvent,
     MessageEvent,
     TextMessage,
     TextSendMessage,
@@ -153,6 +154,7 @@ def handle_message(event):
         message = '本日の出勤打刻修正をします。以下の例にしたがって打刻修正をしてください。\n'\
                   '例) 09:00'
         insert_bot_status(user_id, 'fix_time', True)
+        line_bot_api.unlink_rich_menu_from_user(user_id)
     elif is_fixing_time:
         # 打刻修正をする
         today = datetime.date.today().strftime('%Y-%m-%d')
@@ -183,6 +185,8 @@ def handle_message(event):
 
         insert_bot_status(user_id, 'fix_time', False)
         message = '修正しました'
+        line_bot_api.link_rich_menu_to_user(
+            user_id, on_work_menu_id)
     else:
         message = event.message.text
 
@@ -220,6 +224,7 @@ def handle_image(event):
 
 @handler.add(FollowEvent)
 def handle_follow(event):
+    line_bot_api.unlink_rich_menu_from_user(event.source.user_id)
     message = "{}{}".format(
         '友だち追加ありがとうございます。オフィスの作業を効率化しよう！',
         '\n※このアカウントは空想上のプロトタイプなので、実際の挙動とは異なります')
@@ -243,6 +248,20 @@ def handle_follow(event):
             )
         ]
     )
+
+
+@handler.add(UnfollowEvent)
+def handle_unfollow(event):
+    # Cloudantにあるドキュメントを削除
+    try:
+        db_client.connect()
+        labor_bot_db = db_client['labor_bot']
+        document = labor_bot_db[event.source.user_id]
+        document.delete()
+        db_client.disconnect()
+        logger.info('Unfollow Complete')
+    except KeyError:
+        pass
 
 
 def select_user_data(user_id, column):
