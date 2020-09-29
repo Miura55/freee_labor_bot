@@ -172,10 +172,10 @@ def handle_message(event):
         is_text = False
     elif is_fixing_time:
         # 打刻修正をする
-        today = datetime.date.today().strftime('%Y-%m-%d')
         time_messages = event.message.text.split('\n')
-        clock_in_time = time_messages[0]
-        clock_out_time = time_messages[1]
+        clock_in_time = time_messages[0] + '+09:00'
+        clock_out_time = time_messages[1] + '+09:00'
+        today = clock_in_time.split('T')[0]
 
         response = requests.put(
             'https://api.freee.co.jp/hr/api/v1/employees/{}/work_records/{}'.format(
