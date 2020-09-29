@@ -1,0 +1,32 @@
+{
+  "type": "bubble",
+  "direction": "ltr",
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "下のボタンをタップして打刻修正をお願いします。",
+        "align": "start",
+        "wrap": true,
+        "contents": []
+      }
+    ]
+  },
+  "footer": {
+    "type": "box",
+    "layout": "horizontal",
+    "contents": [
+      {
+        "type": "button",
+        "action": {
+          "type": "uri",
+          "label": "打刻修正",
+          "uri": ""
+        },
+        "style": "primary"
+      }
+    ]
+  }
+}
