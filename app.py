@@ -146,14 +146,13 @@ def handle_message(event):
     employee_id = select_user_data(user_id, 'employee_id')
     is_fixing_time = select_user_data(user_id, 'fix_time')
     flag = ''
-    is_text = True
     if event.message.text == '出勤':
-        message = '出勤しました'
+        message_obj = TextSendMessage(text='出勤しました')
         flag = 'clock_in'
         line_bot_api.link_rich_menu_to_user(
             user_id, on_work_menu_id)
     elif event.message.text == '退勤':
-        message = '退勤しました'
+        message_obj = TextSendMessage(text='退勤しました')
         flag = 'clock_out'
         line_bot_api.link_rich_menu_to_user(
             user_id, attend_menu_id)
@@ -169,7 +168,6 @@ def handle_message(event):
         })
         insert_bot_status(user_id, 'fix_time', True)
         line_bot_api.unlink_rich_menu_from_user(user_id)
-        is_text = False
     elif is_fixing_time:
         # 打刻修正をする
         time_messages = event.message.text.split('\n')
@@ -195,11 +193,11 @@ def handle_message(event):
             response.json(), indent=4, ensure_ascii=False)))
 
         insert_bot_status(user_id, 'fix_time', False)
-        message = '修正しました'
+        message_obj = TextSendMessage(text='修正しました')
         line_bot_api.link_rich_menu_to_user(
             user_id, on_work_menu_id)
     else:
-        message = event.message.text
+        message_obj = TextSendMessage(text=event.message.text)
 
     if flag:
         response = requests.post(
@@ -215,8 +213,7 @@ def handle_message(event):
         )
         logger.info('Result: {}'.format(json.dumps(
             response.json(), indent=4, ensure_ascii=False)))
-    if is_text:
-        message_obj = TextSendMessage(text=message)
+
     line_bot_api.reply_message(
         event.reply_token,
         message_obj)
