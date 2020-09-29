@@ -146,6 +146,7 @@ def handle_message(event):
     employee_id = select_user_data(user_id, 'employee_id')
     is_fixing_time = select_user_data(user_id, 'fix_time')
     flag = ''
+    is_text = True
     if event.message.text == '出勤':
         message = '出勤しました'
         flag = 'clock_in'
@@ -157,17 +158,18 @@ def handle_message(event):
         line_bot_api.link_rich_menu_to_user(
             user_id, attend_menu_id)
     elif event.message.text == '打刻修正':
-        with open('flexmessage_template/fix_time_button.json', 'r', encoding='utf-8') as f:
+        with open('fix_time_button.json', 'r', encoding='utf-8') as f:
             regist_form_content = json.load(f)
         regist_form_content['footer']['contents'][0]['action']['uri'] \
             = 'https://liff.line.me/{}'.format(FIX_TIME_LIFF_ID)
-        message = FlexSendMessage.new_from_json_dict({
+        message_obj = FlexSendMessage.new_from_json_dict({
             "type": "flex",
             "altText": "打刻修正",
             "contents": regist_form_content
         })
         insert_bot_status(user_id, 'fix_time', True)
         line_bot_api.unlink_rich_menu_from_user(user_id)
+        is_text = False
     elif is_fixing_time:
         # 打刻修正をする
         today = datetime.date.today().strftime('%Y-%m-%d')
@@ -213,9 +215,11 @@ def handle_message(event):
         )
         logger.info('Result: {}'.format(json.dumps(
             response.json(), indent=4, ensure_ascii=False)))
+    if is_text:
+        message_obj = TextSendMessage(text=message)
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=message))
+        message_obj)
 
 
 @handler.add(MessageEvent, message=ImageMessage)
@@ -237,7 +241,7 @@ def handle_follow(event):
     message = "{}{}".format(
         '友だち追加ありがとうございます。オフィスの作業を効率化しよう！',
         '\n※このアカウントは空想上のプロトタイプなので、実際の挙動とは異なります')
-    with open('flexmessage_template/regist_message.json', 'r', encoding='utf-8') as f:
+    with open('regist_message.json', 'r', encoding='utf-8') as f:
         regist_form_content = json.load(f)
     regist_form_content['footer']['contents'][0]['action']['uri'] \
         = 'https://liff.line.me/{}'.format(REGIST_LIFF_ID)
@@ -310,7 +314,7 @@ def call_recipt(image):
         logger.info('Expensed Data: {}'.format(
             json.dumps(expense_result, indent=4)))
 
-        with open('flexmessage_template/sample_recipt.json', 'r', encoding='utf-8') as f:
+        with open('sample_recipt.json', 'r', encoding='utf-8') as f:
             recipt_form = json.load(f)
 
         # 読み込み結果を出力するメッセージを作成
