@@ -48,7 +48,8 @@ OCR_API_URL = os.environ.get('OCR_API_URL')
 OCR_API_KEY = os.environ.get('OCR_API_KEY')
 
 # LIFFの用意
-LIFF_ID = os.environ.get('LIFF_ID')
+REGIST_LIFF_ID = os.environ.get('REGIST_LIFF_ID')
+FIX_TIME_LIFF_ID = os.environ.get('FIX_TIME_LIFF_ID')
 
 # Cloudantの接続
 cloudant_url = os.environ.get('CLOUDANT_URL')
@@ -86,7 +87,12 @@ def regist():
         }
     )
     logger.info(response.json())
-    return render_template('regist.html', liffId=LIFF_ID, employees=response.json())
+    return render_template('regist.html', liffId=REGIST_LIFF_ID, employees=response.json())
+
+
+@app.route('/fix_time')
+def fix_time():
+    return render_template('fix_time.html', liffId=FIX_TIME_LIFF_ID)
 
 
 @app.route('/reqlogin')
@@ -151,21 +157,24 @@ def handle_message(event):
         line_bot_api.link_rich_menu_to_user(
             user_id, attend_menu_id)
     elif event.message.text == '打刻修正':
-        message = '本日の出勤打刻修正をします。以下の例にしたがって打刻修正をしてください。\n'\
-                  '例) 09:00'
+        with open('flexmessage_template/fix_time_button.json', 'r', encoding='utf-8') as f:
+            regist_form_content = json.load(f)
+        regist_form_content['footer']['contents'][0]['action']['uri'] \
+            = 'https://liff.line.me/{}'.format(FIX_TIME_LIFF_ID)
+        message = FlexSendMessage.new_from_json_dict({
+            "type": "flex",
+            "altText": "打刻修正",
+            "contents": regist_form_content
+        })
         insert_bot_status(user_id, 'fix_time', True)
         line_bot_api.unlink_rich_menu_from_user(user_id)
     elif is_fixing_time:
         # 打刻修正をする
         today = datetime.date.today().strftime('%Y-%m-%d')
-        fixed_strtime = today + event.message.text
-        fixed_datetime = datetime.datetime.strptime(
-            fixed_strtime, "%Y-%m-%d%H:%M")
-        fixed_end_datetime = fixed_datetime+datetime.timedelta(hours=9)
-        clock_in_time = fixed_datetime.astimezone(
-            timezone('Asia/Tokyo')).isoformat()
-        clock_out_time = fixed_end_datetime.astimezone(
-            timezone('Asia/Tokyo')).isoformat()
+        time_messages = event.message.text.split('\n')
+        clock_in_time = time_messages[0]
+        clock_out_time = time_messages[1]
+
         response = requests.put(
             'https://api.freee.co.jp/hr/api/v1/employees/{}/work_records/{}'.format(
                 employee_id, today),
@@ -228,10 +237,10 @@ def handle_follow(event):
     message = "{}{}".format(
         '友だち追加ありがとうございます。オフィスの作業を効率化しよう！',
         '\n※このアカウントは空想上のプロトタイプなので、実際の挙動とは異なります')
-    with open('regist_message.json', 'r', encoding='utf-8') as f:
+    with open('flexmessage_template/regist_message.json', 'r', encoding='utf-8') as f:
         regist_form_content = json.load(f)
     regist_form_content['footer']['contents'][0]['action']['uri'] \
-        = 'https://liff.line.me/{}'.format(LIFF_ID)
+        = 'https://liff.line.me/{}'.format(REGIST_LIFF_ID)
     regist_form_message = FlexSendMessage.new_from_json_dict({
         "type": "flex",
         "altText": "アカウントの連携",
@@ -301,7 +310,7 @@ def call_recipt(image):
         logger.info('Expensed Data: {}'.format(
             json.dumps(expense_result, indent=4)))
 
-        with open('sample_recipt.json', 'r', encoding='utf-8') as f:
+        with open('flexmessage_template/sample_recipt.json', 'r', encoding='utf-8') as f:
             recipt_form = json.load(f)
 
         # 読み込み結果を出力するメッセージを作成

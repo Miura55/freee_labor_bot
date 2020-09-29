@@ -1,0 +1,73 @@
+{% extends "base.html" %} {% block body %}
+<div class="row">
+  <div class="col-4">
+    <label>出勤時刻</label>
+  </div>
+  <div class="col-10">
+    <input type="datetime-local" class="form-control" id="clock_in" />
+  </div>
+  <div class="col-4">
+    <label>退勤時刻</label>
+  </div>
+  <div class="col-10">
+    <input type="datetime-local" class="form-control" id="clock_out " />
+  </div>
+  <button
+    type="button"
+    id="submit"
+    class="btn btn-primary w-100 mt-2"
+    data-toggle="modal"
+  >
+    修正
+  </button>
+</div>
+
+<script>
+  window.onload = function (e) {
+    initLiff("{{ liffId }}");
+  };
+
+  function initLiff(myLiffId) {
+    liff
+      .init({
+        liffId: myLiffId,
+      })
+      .then(() => {
+        if (!liff.isInClient()) {
+          window.location.href = "/reqlogin";
+        } else {
+          // start to use LIFF's api
+          liff
+            .getProfile()
+            .then(function (profile) {
+              userId = profile.userId;
+              userName = profile.displayName;
+            })
+            .catch(function (error) {
+              window.alert("Error getting profile: " + error);
+            });
+        }
+      });
+  }
+
+  $("#submit").on("click", function () {
+    var clockInDatetime = $("#clock_in").val();
+    var clockOutDatetime = $("#clock_out").val();
+
+    liff
+      .sendMessages([
+        {
+          type: "text",
+          text: clockInDatetime + "\n" + clockOutDatetime,
+        },
+      ])
+      .then(() => {
+        console.log("message sent");
+        liff.closeWindow();
+      })
+      .catch((err) => {
+        console.log("error", err);
+      });
+  });
+</script>
+{% endblock %}
