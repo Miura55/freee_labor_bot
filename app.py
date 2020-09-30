@@ -71,12 +71,15 @@ app = Flask(__name__, static_folder='static')
 CORS(app)
 logger = getLogger("werkzeug")
 
+# サーバーの疎通確認
+
 
 @app.route('/')
 def connect():
     return "Hello from Flask"
 
 
+# freeeのユーザーIDとLINEのユーザーIDを紐付けるLIFF
 @app.route('/regist')
 def regist():
     response = requests.get(
@@ -90,11 +93,13 @@ def regist():
     return render_template('regist.html', liffId=REGIST_LIFF_ID, employees=response.json())
 
 
+# 打刻修正のLIFF
 @app.route('/fix_time')
 def fix_time():
     return render_template('fix_time.html', liffId=FIX_TIME_LIFF_ID)
 
 
+# LIFFをブラウザで開いたとき
 @app.route('/reqlogin')
 def reqlogin():
     return render_template('reqlogin.html')
@@ -119,6 +124,7 @@ def submit():
     return "OK!"
 
 
+# LINE botのWebhookを受け取る
 @app.route("/callback", methods=['POST'])
 def callback():
     # get X-Line-Signature header value
